@@ -2,6 +2,7 @@ package org.example.productservice.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.productservice.dto.FakeStoreProductDto;
+import org.example.productservice.exceptions.ProductNotFoundException;
 import org.example.productservice.models.Category;
 import org.example.productservice.models.Product;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,7 @@ public class FakeStoreProductService implements ProductService{
     @Override
     public List<Product> getAllProducts() {
         ResponseEntity<FakeStoreProductDto[]> response = restTemplate.getForEntity("https://fakestoreapi.com/products/", FakeStoreProductDto[].class);
+//        System.out.println("DEBUG");
         FakeStoreProductDto[] responseBody = response.getBody();
 
         // 1. Safe check if API returned nothing
@@ -46,7 +48,7 @@ public class FakeStoreProductService implements ProductService{
     }
 
     @Override
-    public Product getSingleProduct(Long productId) {
+    public Product getSingleProduct(Long productId) throws ProductNotFoundException {
         // make an http call to fakestore api to get the product with the given productId.
         ResponseEntity<FakeStoreProductDto> responseEntity= restTemplate.getForEntity("https://fakestoreapi.com/products/" + productId, FakeStoreProductDto.class);
 //        ResponseEntity<FakeStoreProductDto> responseEntity = restClient
@@ -57,13 +59,18 @@ public class FakeStoreProductService implements ProductService{
 
         FakeStoreProductDto fakeStoreProductDto =  responseEntity.getBody();
 
+//        throw new RuntimeException("Something went wrong");
+        if(fakeStoreProductDto == null){
+            // Invalid productId
+            throw new ProductNotFoundException(productId);
+        }
         return convertFakeStoreDtoTOProduct(fakeStoreProductDto);
     }
 
     private Product convertFakeStoreDtoTOProduct(FakeStoreProductDto fakeStoreProductDto){
-        if(fakeStoreProductDto == null){
-            return null;
-        }
+//        if(fakeStoreProductDto == null){
+//            return null;
+//        }
 
         Product product = new Product();
         Category category = new Category();
