@@ -1,0 +1,104 @@
+ProductService/
+├── HELP.md
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── org/
+│   │   │       └── example/
+│   │   │           └── productservice/
+│   │   │               ├── ProductServiceApplication.java
+│   │   │               ├── configs/
+│   │   │               │   ├── AppConfig.java
+│   │   │               │   └── AppConfigNew.java
+│   │   │               ├── controlleradvice/
+│   │   │               │   └── ProductServiceExceptionHandling.java
+│   │   │               ├── controllers/
+│   │   │               │   ├── ProductController.java
+│   │   │               │   └── SampleController.java
+│   │   │               ├── dto/
+│   │   │               │   └── FakeStoreProductDto.java
+│   │   │               ├── exceptions/
+│   │   │               │   └── ProductNotFoundException.java
+│   │   │               ├── models/
+│   │   │               │   ├── BaseModel.java
+│   │   │               │   ├── Category.java
+│   │   │               │   └── Product.java
+│   │   │               └── service/
+│   │   │                   ├── FakeStoreProductService.java
+│   │   │                   └── ProductService.java
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       ├── static/
+│   │       └── templates/
+│   └── test/
+│       └── java/
+│           └── org/
+│               └── example/
+│                   └── productservice/
+│                       └── ProductServiceApplicationTests.java
+└── target/
+    ├── classes/
+    │   ├── application.properties
+    │   └── org/example/productservice/
+    │       ├── configs/
+    │       ├── controlleradvice/
+    │       ├── controllers/
+    │       ├── dto/
+    │       ├── exceptions/
+    │       ├── models/
+    │       └── service/
+    ├── generated-sources/
+    │   └── annotations/
+    ├── generated-test-sources/
+    │   └── test-annotations/
+    └── test-classes/
+        └── org/example/productservice/
+
+
+    Application Interaction Chart
+    =============================
+
+    ┌──────────────────────────────────────────────┐
+    │ 1. controlleradvice                          │
+    │ ProductServiceExceptionHandling.java         │
+    │ Handles exceptions raised during a request.  │
+    └──────────────────────┬───────────────────────┘
+                   │ exception response
+                   v
+    ┌──────────────────────────────────────────────┐
+    │ 2. controller                                │
+    │ ProductController.java                       │
+    │ SampleController.java                         │
+    │ Receives HTTP requests and returns responses. │
+    └──────────────────────┬───────────────────────┘
+                   │ calls
+                   v
+    ┌──────────────────────────────────────────────┐
+    │ 3. service                                   │
+    │ ProductService.java                           │
+    │ FakeStoreProductService.java                  │
+    │ Contains application and business logic.      │
+    └──────────────────────┬───────────────────────┘
+                   │ converts external data
+                   v
+    ┌──────────────────────────────────────────────┐
+    │ 4. dto                                       │
+    │ FakeStoreProductDto.java                     │
+    │ Represents data received from Fake Store API. │
+    └──────────────────────┬───────────────────────┘
+                   │ maps data into
+                   v
+    ┌──────────────────────────────────────────────┐
+    │ 5. models                                    │
+    │ Product.java, Category.java, BaseModel.java  │
+    │ Represents the application's domain objects. │
+    └──────────────────────────────────────────────┘
+
+    Normal request flow:
+    controller -> service -> dto -> models -> controller response
+
+    Exception flow:
+    controller/service -> controlleradvice -> error response
