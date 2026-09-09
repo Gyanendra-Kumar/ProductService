@@ -1,5 +1,7 @@
 package org.example.productservice.models;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -8,11 +10,12 @@ import lombok.ToString;
 @Getter  // Generate all getter methods
 @Setter  // Generate all setter methods
 @ToString
+@Entity(name = "products")
 public class Product extends BaseModel{
     private String title;
     private String description;
     private Double price;
     private String imageUrl;
+    @ManyToOne
     private Category category;
-
 }

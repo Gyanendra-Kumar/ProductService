@@ -1,18 +1,18 @@
-package org.example.productservice.models;
+package org.example.productservice.inheritancedemo.mappedsuperclass;
+
 
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Date;
-
-@Setter
 @Getter
+@Setter
 @MappedSuperclass
-public class BaseModel {
+public class User {
     @Id
     private Long id;
-    private Date createdAt;
-    private Date lastModifiedAt;
+    private String name;
+    private String email;
+    private String password;
 }
