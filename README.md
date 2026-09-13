@@ -652,3 +652,134 @@ ProductService/
 
 This documentation provides a complete roadmap of how the ProductService Spring Boot application was built, from foundational dependencies to entity inheritance patterns, all centered around the MVC architecture paradigm.
 
+---
+
+Uncommitted / staged changes — detailed file-by-file analysis
+
+NOTE: the following files are currently modified or staged in the working tree. Each section explains what the file contains, why the change matters, any correctness or safety concerns, and recommended next steps (code, tests, and migration notes).
+
+1) src/main/java/org/example/productservice/controllers/CategoryController.java
+- Status: newly added and staged (placeholder).
+- What it contains: a @RestController with GET /categories/{categoryId} that currently throws RuntimeException("Not Implemented").
+- Why it matters: consumers expect a category lookup; leaving this unimplemented will produce 500 errors for category requests.
+- Issues & risks:
+  - Throws RuntimeException instead of returning 404 for missing category.
+  - No dependency injection for CategoryRepository (so cannot fetch from DB).
+- Recommended changes:
+  - Inject CategoryRepository via constructor, call findById, return 200 with Category or throw/return 404 using ProductNotFoundException or custom CategoryNotFoundException.
+  - Add @Validated and @PathVariable validation if needed.
+  - Add unit test verifying 404 and 200 behaviors.
+
+2) src/main/java/org/example/productservice/controllers/ProductController.java
+- Status: modified (staged changes present).
+- What it contains: endpoints for CRUD (/products) using ProductService injected by @Qualifier("selfProductService").
+- Notable implementations:
+  - getSingleProduct delegates to productService.getSingleProduct and throws ProductNotFoundException when not found.
+  - getAllProducts and createProduct implemented.
+  - replaceProduct and deleteProduct return null (not implemented).
+- Issues & risks:
+  - PUT and DELETE return null — producing 200 with empty body or NPEs depending on framework behavior.
+  - Controller returns domain entity Product directly — consider returning DTOs to decouple API contract from persistence model.
+- Recommended changes:
+  - Implement replaceProduct to call service.replaceProduct with proper behavior (upsert vs replace semantics) and validate input.
+  - Implement deleteProduct to return ResponseEntity<Void> with 204 on success, or the deleted resource if desired.
+  - Add integration tests for all endpoints; mock ProductService for unit tests and use @SpringBootTest for end-to-end.
+
+3) src/main/java/org/example/productservice/models/BaseModel.java
+- Status: modified.
+- What it contains: @MappedSuperclass with id (@GeneratedValue(strategy = GenerationType.AUTO)), createdAt (@CreationTimestamp), lastModifiedAt (@UpdateTimestamp).
+- Why it matters: base ID strategy and audit timestamps apply to all entities.
+- Issues & risks:
+  - GenerationType.AUTO delegates choice to provider — for MySQL it's often better to use GenerationType.IDENTITY to avoid sequence-related issues.
+  - Date type used for timestamps; consider Instant or OffsetDateTime for timezone clarity.
+- Recommended changes:
+  - Decide ID strategy per-target DB (IDENTITY for MySQL); document before migrating production DB.
+  - Optionally migrate createdAt/lastModifiedAt to java.time types and update any JSON serialization configs.
+
+4) src/main/java/org/example/productservice/projections/ProductWithTitleAndPrice.java
+- Status: added/staged.
+- What it contains: simple projection interface exposing getTitle() and getPrice().
+- Why it matters: supports efficient partial selects for list endpoints.
+- Actionable: keep as-is; use in repository queries and controller responses (map to DTO for API consumers if needed).
+
+5) src/main/java/org/example/productservice/repositories/CategoryRepository.java
+- Status: added/staged.
+- What it contains: extends JpaRepository<Category, Long>, declares Optional<Category> findByTitle(String) and Category save(Category).
+- Issues & notes:
+  - save(Category) is redundant because JpaRepository already exposes save — harmless but unnecessary.
+- Recommended changes:
+  - Remove explicit save declaration to keep interface minimal.
+  - Add @Transactional where needed in service layer when creating categories concurrently.
+
+6) src/main/java/org/example/productservice/repositories/ProductRepository.java
+- Status: added/staged.
+- What it contains: multiple derived queries, a custom @Query method findTitleAndPriceById() returning ProductWithTitleAndPrice.
+- Issues & bugs discovered:
+  - findByTitleIgnoreCaseAndPriceBetween signature currently: List<Product> findByTitleIgnoreCaseAndPriceBetween(String title, Date start, Date end); — name implies price range but parameters are Date. This is a method-signature/name mismatch and will cause Spring Data to attempt deriving a query that fails at startup or behave unexpectedly.
+  - @Query for findTitleAndPriceById() contains hard-coded WHERE p.id=302 (no parameter). This is likely a placeholder and should be parameterized (e.g., WHERE p.id = :id) or removed if not needed.
+  - Declaring save/deleteById/ findAll/findById is redundant because JpaRepository provides these; redundancy is harmless but noisy.
+- Recommended fixes:
+  - Fix method signatures: use Double for price ranges (findByPriceBetween already exists) or rename method to match parameters.
+  - Change @Query to accept @Param and pass id or remove native HQL query and use repository methods.
+  - Add unit tests for custom queries; enable integration test using H2 or Testcontainers.
+
+7) src/main/java/org/example/productservice/service/FakeStoreProductService.java
+- Status: modified.
+- What it contains: a ProductService implementation that calls https://fakestoreapi.com via RestTemplate, maps FakeStoreProductDto -> Product and Category, and returns product lists or single product.
+- Notable behavior:
+  - On getAllProducts(), makes GET to /products, maps to FakeStoreProductDto[], converts to Product list and prints to stdout.
+  - On getSingleProduct(id), calls external API and throws ProductNotFoundException if returned body is null.
+  - convertFakeStoreDtoTOProduct sets both category.id and product.id to fakeStoreProductDto.getId(), and manually sets createdAt/lastModifiedAt.
+  - create/replace/delete are unimplemented (return null).
+- Issues & risks:
+  - Using dto.getId() for Category.id is incorrect — product IDs and category identities are distinct; this will create many duplicate/mismatched category rows and break relations.
+  - No persistence: this service returns mapped Product objects but doesn't persist them to DB; if consumers expect persistent data, behavior will be inconsistent.
+  - System.out.println used instead of logger; prefer log.debug/log.info.
+  - No error handling for non-2xx statuses (RestTemplate getForEntity can throw RestClientException).
+  - No resilience/circuit-breaker or caching — repeated calls will hit external API.
+- Recommended fixes:
+  - Map category properly: FakeStoreProductDto.getCategory() likely returns a String title; create or lookup Category by title instead of using product id.
+  - If intention is to persist fetched products locally, inject ProductRepository/CategoryRepository and save converted entities within a transaction.
+  - Replace System.out with logger (log.debug).
+  - Implement create/replace/delete or mark methods UnsupportedOperationException if not applicable.
+  - Add Resilience4j or Spring Retry + caching to reduce external load.
+
+8) src/main/java/org/example/productservice/service/SelfProductService.java
+- Status: added/staged and used via @Qualifier("selfProductService") in ProductController.
+- What it contains: DB-backed ProductService using ProductRepository and CategoryRepository. getAllProducts(), getSingleProduct(), and createProduct() implemented. replaceProduct and deleteProduct unimplemented.
+- Behavior highlights:
+  - createProduct checks for existing products by title (case-insensitive contains), and prevents duplicates by throwing RuntimeException.
+  - If category with same title exists it reuses it; otherwise it saves the new Category.
+- Issues & risks:
+  - Duplicate checks use a separate select before insert — race condition possible under concurrency. Unique DB constraint on (title) and handling DataIntegrityViolationException is recommended.
+  - Throws unchecked RuntimeException for expected conditions (duplicate) — better to throw a domain-specific exception and map it to 409 Conflict.
+  - replaceProduct/deleteProduct missing; ProductController depends on these endpoints.
+- Recommended fixes:
+  - Add @Transactional on createProduct method to ensure category creation and product save are atomic.
+  - Add unique constraint on product.title (or composite index) and handle DataIntegrityViolationException in ControllerAdvice.
+  - Implement replace/delete with clear semantics and tests.
+
+9) src/test/java/org/example/productservice/ProductServiceApplicationTests.java
+- Status: modified.
+- What it contains: basic @SpringBootTest; testQuery() calls productRepository.findTitleAndPriceById() and attempts to print a product price found by category title.
+- Issues & risks:
+  - findTitleAndPriceById() currently has a hard-coded id=302 in its @Query — test depends on that ID being present; brittle and non-deterministic.
+  - testQuery prints to stdout rather than asserting behavior — not a proper unit/integration test.
+- Recommended changes:
+  - Replace testQuery with deterministic tests: prepare test data (insert products via repository or use @Sql to load fixtures) and assert expected repository methods return correct values.
+  - Use @DataJpaTest for repository tests to run faster and with in-memory DB.
+
+Overall recommended next steps (practical):
+- Fix obvious bugs first: ProductRepository query signature mismatch and hard-coded query; FakeStoreProductService category mapping; ProductController PUT/DELETE implementations.
+- Add transactional protections and DB constraints (unique indexes) to avoid race conditions.
+- Replace println with proper logging and add resilience/caching around external calls.
+- Add/extend tests: unit tests for controllers and services (mock repositories), repository tests using H2/Testcontainers, and integration tests for external API using WireMock.
+- After code fixes, run `mvn -DskipTests=false test` and fix failing tests; add CI job to run tests and DB migration checks.
+
+If you'd like, the next action can be: (choose one)
+- I. Create a PR that implements the recommended fixes for the highest-risk issues (ProductRepository @Query, FakeStore category mapping, controller null returns).
+- II. Automatically generate CHANGELOG.md containing the staged diffs and commit metadata.
+- III. Implement the missing service/controller methods and unit tests locally and open a PR.
+
+Which option should be done next? (Pick I, II, or III)
+

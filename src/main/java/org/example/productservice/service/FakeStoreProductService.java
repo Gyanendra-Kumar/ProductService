@@ -15,7 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service
+@Service("fakeStoreProductService")
 @Slf4j
 public class FakeStoreProductService implements ProductService{
     private RestTemplate restTemplate;
