@@ -1,5 +1,6 @@
 package org.example.productservice.controllers;
 
+import org.example.productservice.commons.AuthCommons;
 import org.example.productservice.exceptions.ProductNotFoundException;
 import org.example.productservice.models.Product;
 import org.example.productservice.service.ProductService;
@@ -20,9 +21,21 @@ public class ProductController {
         this.productService = productService;
     }
 
-    @GetMapping("/{productId}")
-    public Product getSingleProduct(@PathVariable("productId") Long productId) throws ProductNotFoundException {
-        return productService.getSingleProduct(productId);
+    @GetMapping("/{productId}/{tokenValue}")   // added tokenValue
+    public ResponseEntity<Product> getSingleProduct(@PathVariable("productId") Long productId, @PathVariable("tokenValue") String tokenValue) throws ProductNotFoundException {
+
+        Product product = null;
+        ResponseEntity<Product> responseEntity = null;
+
+        // If token is valid then only return the single product
+        if(AuthCommons.validateToken(tokenValue)){
+            product = productService.getSingleProduct(productId);
+            responseEntity = new ResponseEntity<>(product, HttpStatus.OK);
+        }else{
+            responseEntity = new ResponseEntity<>(product, HttpStatus.UNAUTHORIZED);
+        }
+
+        return responseEntity;
     }
 
     @GetMapping()

@@ -42,7 +42,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // select title, price from product where id=10;
 
 //    @Query(value = "SELECT p.title, p.price FROM products p WHERE p.id=302", nativeQuery = true)
-@Query(value = "SELECT p.title, p.price FROM Product p WHERE p.id=302")
+@Query(value = "SELECT p.title, p.price FROM products p WHERE p.id=302")
     List<ProductWithTitleAndPrice> findTitleAndPriceById();
 
     Optional<Product> findByCategory(Category category);
